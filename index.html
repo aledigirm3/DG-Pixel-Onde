@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visual Sound Mixer</title>
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+    <header>
+        <h1>Visual Sound Mixer</h1>
+    </header>
+
+    <main>
+        <section id="image-section" class="card">
+            <h2>1. Manipolazione Immagine</h2>
+            <label for="image-input" class="file-label">Carica Immagine</label>
+            <input type="file" id="image-input" accept="image/*" />
+            
+            <canvas id="image-canvas"></canvas>
+            
+            <div id="image-controls">
+                <div class="control-group">
+                    <label>Filtri:</label>
+                    <div class="buttons-container">
+                        <button data-filter="grayscale">Grigi</button>
+                        <button data-filter="invert">Inverti</button>
+                        <button data-filter="sepia">Seppia</button>
+                        <button id="reset-image-btn">Reset</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="rotate-slider">Rotazione: <span id="rotate-value">0</span>°</label>
+                    <input type="range" id="rotate-slider" min="0" max="360" value="0" />
+                </div>
+            </div>
+        </section>
+
+        <section id="audio-section" class="card">
+            <h2>2. Analisi Audio</h2>
+            <label for="audio-input" class="file-label">Carica Audio</label>
+            <input type="file" id="audio-input" accept="audio/*" />
+            
+            <div id="audio-visualizers">
+                <canvas id="waveform-canvas"></canvas>
+                <canvas id="spectrum-canvas"></canvas>
+            </div>
+
+            <div id="audio-controls">
+                <div class="buttons-container">
+                    <button id="play-pause-btn" disabled>Play</button>
+                    <button id="stop-btn" disabled>Stop</button>
+                </div>
+                <div class="control-group">
+                    <label for="volume-slider">Volume</label>
+                    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" />
+                </div>
+                <div class="control-group">
+                    <label for="audio-seek-bar">Avanzamento</label>
+                    <input type="range" id="audio-seek-bar" value="0" step="0.1" disabled />
+                    <span id="audio-time-display">00:00 / 00:00</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
