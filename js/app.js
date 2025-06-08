@@ -1,3 +1,4 @@
+console.log("%c🚀 Developed by %cDiggi", "color: #7CFC00;", "color: #7CFC00; font-weight: bold;");
 document.addEventListener('DOMContentLoaded', () => {
     // --- Riferimenti DOM (Immagine) ---
     const imageInput = document.getElementById('image-input');
@@ -19,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const wfCtx = waveformCanvas.getContext('2d');
     const spectrumCanvas = document.getElementById('spectrum-canvas');
     const spCtx = spectrumCanvas.getContext('2d');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValue = document.getElementById('speed-value');
+    const resetSpeedBtn = document.getElementById('reset-speed-btn');
 
     // --- Stato dell'applicazione ---
     const appState = {
@@ -30,15 +34,15 @@ document.addEventListener('DOMContentLoaded', () => {
         audio: {
             context: null,
             buffer: null,
-            source: null, // AudioBufferSourceNode
+            source: null,
             gainNode: null,
             analyser: null,
             isPlaying: false,
             isLoaded: false,
-            // isFinished: false, // Non più necessario se gestiamo bene startOffset
-            startOffset: 0, // Dove ripartire (in secondi)
-            startTime: 0, // Tempo del context quando è partita la riproduzione (per calcolare startOffset alla pausa)
+            startOffset: 0,
+            startTime: 0,
             animationFrameId: null,
+            playbackRate: 1.0,
         },
     };
 
@@ -65,12 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.image.filter = btn.dataset.filter;
         renderImage();
     }));
+
     rotateSlider.addEventListener('input', e => {
         const angle = parseInt(e.target.value, 10);
         appState.image.rotation = angle;
         rotateValue.textContent = angle;
         renderImage();
     });
+
     resetImageBtn.addEventListener('click', () => {
         resetImageState();
         renderImage();
@@ -101,9 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imgData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
-            const r = data[i],
-                g = data[i + 1],
-                b = data[i + 2];
+            const r = data[i], g = data[i + 1], b = data[i + 2];
             switch (type) {
                 case 'grayscale':
                     const avg = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -127,17 +131,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // --- ANALISI AUDIO ---
     // =================================================================
-
     audioInput.addEventListener('change', async e => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Chiude il contesto audio precedente se esiste
         if (appState.audio.context && appState.audio.context.state !== 'closed') {
             await appState.audio.context.close();
         }
-        stopAudio(false); // Ferma qualsiasi riproduzione e resetta lo stato senza azzerare l'offset
-        appState.audio.startOffset = 0; // Azzera l'offset solo al caricamento di un nuovo file
+        resetAudioState();
+        appState.audio.startOffset = 0;
 
         appState.audio.context = new (window.AudioContext || window.webkitAudioContext)();
         try {
@@ -150,9 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
             playPauseBtn.disabled = false;
             stopBtn.disabled = false;
             audioSeekBar.disabled = false;
+            speedSlider.disabled = false;
+            resetSpeedBtn.disabled = false;
+
             playPauseBtn.textContent = 'Play';
             audioTimeDisplay.textContent = `00:00 / ${formatTime(appState.audio.buffer.duration)}`;
-            audioSeekBar.max = appState.audio.buffer.duration * 100; // Imposta il max in base alla durata in centesimi di secondo
+            audioSeekBar.max = appState.audio.buffer.duration * 100;
             audioSeekBar.value = 0;
 
         } catch (error) {
@@ -164,14 +169,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupAudioNodes() {
         const { context } = appState.audio;
-        if (!context) return; // Assicurati che il contesto esista
+        if (!context) return;
 
         appState.audio.gainNode = context.createGain();
         appState.audio.analyser = context.createAnalyser();
         appState.audio.analyser.fftSize = 2048;
 
-        // Connessioni: source -> gainNode -> analyser -> destination
-        // Il source verrà creato e connesso in playAudio()
         appState.audio.gainNode.connect(appState.audio.analyser);
         appState.audio.analyser.connect(context.destination);
         appState.audio.gainNode.gain.value = volumeSlider.value;
@@ -188,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     stopBtn.addEventListener('click', () => {
         if (appState.audio.isLoaded) {
-            stopAudio(false); // Passa false per indicare che non è una fine naturale
+            stopAudio(false);
         }
     });
 
@@ -198,53 +201,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    speedSlider.addEventListener('input', e => {
+        const newRate = parseFloat(e.target.value);
+        appState.audio.playbackRate = newRate;
+        speedValue.textContent = newRate.toFixed(2);
+
+        if (appState.audio.source) {
+            appState.audio.source.playbackRate.value = newRate;
+        }
+    });
+
+    resetSpeedBtn.addEventListener('click', () => {
+        const defaultRate = 1.0;
+        appState.audio.playbackRate = defaultRate;
+        speedSlider.value = defaultRate;
+        speedValue.textContent = defaultRate.toFixed(2);
+
+        if (appState.audio.source) {
+            appState.audio.source.playbackRate.value = defaultRate;
+        }
+    });
+
     audioSeekBar.addEventListener('input', e => {
         if (!appState.audio.buffer) return;
-        // Il valore della seek bar è ora in secondi (ma * 100 per precisione)
-        const newTime = parseFloat(e.target.value) / 100; 
+        const newTime = parseFloat(e.target.value) / 100;
         appState.audio.startOffset = newTime;
 
-        // Se si sta riproducendo, riavvia da questa nuova posizione
         if (appState.audio.isPlaying) {
             if (appState.audio.source) {
                 appState.audio.source.stop();
-                appState.audio.source.disconnect(); // Disconnetti il vecchio source
-                appState.audio.source = null; // Rimuovi il riferimento al vecchio source
+                appState.audio.source.disconnect();
+                appState.audio.source = null;
             }
             playAudio();
         }
-        // Aggiorna il display del tempo anche da fermo
         audioTimeDisplay.textContent = `${formatTime(newTime)} / ${formatTime(appState.audio.buffer.duration)}`;
     });
 
     function playAudio() {
-        const { context, buffer, gainNode, startOffset } = appState.audio;
+        const { context, buffer, gainNode, startOffset, playbackRate } = appState.audio;
 
         if (!context || !buffer) {
             console.warn("Contesto audio o buffer non pronti.");
             return;
         }
 
-        // Se il contesto è sospeso (es. dopo una pausa), riprendilo
         if (context.state === 'suspended') {
             context.resume();
         }
-        
-        // Crea un nuovo AudioBufferSourceNode OGNI VOLTA che riproduci
+
         appState.audio.source = context.createBufferSource();
         appState.audio.source.buffer = buffer;
-        appState.audio.source.connect(gainNode); // Connetti il source al gainNode
+        appState.audio.source.playbackRate.value = playbackRate;
+        appState.audio.source.connect(gainNode);
 
         appState.audio.source.onended = () => {
-            // Se l'audio è finito naturalmente (non fermato dall'utente)
-            if (appState.audio.isPlaying) { 
-                stopAudio(true); // 'true' per indicare che è finita naturalmente
+            if (appState.audio.isPlaying) {
+                stopAudio(true);
             }
         };
 
-        // Calcola il tempo di inizio per la riproduzione continua
         appState.audio.startTime = context.currentTime;
-        appState.audio.source.start(0, startOffset % buffer.duration); // Assicurati che l'offset non superi la durata
+        appState.audio.source.start(0, startOffset % buffer.duration);
 
         appState.audio.isPlaying = true;
         playPauseBtn.textContent = 'Pause';
@@ -252,45 +270,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pauseAudio() {
-        const { context, source } = appState.audio;
-        if (!source || context.state === 'suspended') return;
+        const { context, source, startTime, startOffset } = appState.audio;
+        if (!appState.audio.isPlaying || !source) return;
 
-        context.suspend(); // Sospende la riproduzione
-        // Calcola il nuovo startOffset basato su quanto tempo è trascorso
-        appState.audio.startOffset += context.currentTime - appState.audio.startTime;
+        const elapsedTime = (context.currentTime - startTime) * source.playbackRate.value;
+        appState.audio.startOffset = startOffset + elapsedTime;
+
+        source.onended = null;
+        source.stop(0);
+        appState.audio.source = null;
+
         appState.audio.isPlaying = false;
         playPauseBtn.textContent = 'Play';
-        stopVisualization();
+
+        if (appState.audio.animationFrameId) {
+            cancelAnimationFrame(appState.audio.animationFrameId);
+            appState.audio.animationFrameId = null;
+        }
     }
 
-    function stopAudio(finished = false) {
-        const { source, context } = appState.audio;
-
+    function stopAudio(finishedNaturally = false) {
+        const { source } = appState.audio;
         if (source) {
-            source.stop(0); // Ferma immediatamente il nodo source
-            source.disconnect(); // Disconnetti il source
-            appState.audio.source = null; // Rimuovi il riferimento
-        }
-
-        if (context && context.state === 'running') {
-            context.suspend(); // Sospendi il contesto se è in esecuzione
+            source.onended = null;
+            source.stop(0);
+            appState.audio.source = null;
         }
 
         appState.audio.isPlaying = false;
-        // Se la traccia è finita naturalmente, resetta l'offset a 0.
-        // Altrimenti, mantiene l'offset corrente (per un successivo play/seek).
-        appState.audio.startOffset = finished ? 0 : appState.audio.startOffset;
-
-        // Se finished è true, allora la riproduzione è arrivata alla fine.
-        // In questo caso, il cursore deve andare a fine traccia e poi resettarsi a 0.
-        if (finished) {
-            audioSeekBar.value = 0; // Torna all'inizio sulla UI
-            appState.audio.startOffset = 0; // Reset effettivo dell'offset per ripartire dall'inizio
-        }
-        
         playPauseBtn.textContent = 'Play';
+        appState.audio.startOffset = 0;
+
         stopVisualization();
-        updateSeekBarAndTime(); // Aggiorna la barra e il tempo per riflettere lo stato di stop
+        updateSeekBarAndTime();
     }
 
     function resetAudioState() {
@@ -300,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appState.audio.source = null;
         }
         if (appState.audio.context && appState.audio.context.state !== 'closed') {
-            appState.audio.context.close();
+            appState.audio.context.close().catch(e => console.error(e));
             appState.audio.context = null;
         }
         appState.audio.buffer = null;
@@ -310,33 +322,37 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.audio.isLoaded = false;
         appState.audio.startOffset = 0;
         appState.audio.startTime = 0;
+        appState.audio.playbackRate = 1.0;
         stopVisualization();
 
         playPauseBtn.disabled = true;
         stopBtn.disabled = true;
         audioSeekBar.disabled = true;
+        speedSlider.disabled = true;
+        resetSpeedBtn.disabled = true;
+
         playPauseBtn.textContent = 'Play';
-        audioTimeDisplay.textContent = `00:00 / 00:00`;
+        audioTimeDisplay.textContent = '00:00 / 00:00';
         audioSeekBar.value = 0;
-        // Cancella i canvas
+        speedSlider.value = 1.0;
+        speedValue.textContent = '1.00';
+
         wfCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
         spCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
     }
 
-
     function startVisualization() {
         if (appState.audio.animationFrameId) return;
-        
+
         const analyser = appState.audio.analyser;
-        if (!analyser) return; // Assicurati che l'analyser esista
+        if (!analyser) return;
 
         const dataLength = analyser.frequencyBinCount;
-        const waveformData = new Uint8Array(analyser.fftSize); // Usa fftSize per waveformData
+        const waveformData = new Uint8Array(analyser.fftSize);
         const frequencyData = new Uint8Array(dataLength);
 
         function draw() {
             updateSeekBarAndTime();
-            // Assicurati che l'analyser e il contesto siano attivi prima di disegnare
             if (!appState.audio.isPlaying && appState.audio.context.state !== 'running') {
                 stopVisualization();
                 return;
@@ -348,42 +364,38 @@ document.addEventListener('DOMContentLoaded', () => {
             drawSpectrum(frequencyData);
             appState.audio.animationFrameId = requestAnimationFrame(draw);
         }
-        appState.audio.animationFrameId = requestAnimationFrame(draw); // Inizializza qui
+        appState.audio.animationFrameId = requestAnimationFrame(draw);
     }
-    
+
     function stopVisualization() {
         if (appState.audio.animationFrameId) {
             cancelAnimationFrame(appState.audio.animationFrameId);
             appState.audio.animationFrameId = null;
-            // Pulisci i canvas quando la visualizzazione si ferma
             wfCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
             spCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
         }
     }
 
     function updateSeekBarAndTime() {
-        const { context, buffer, isPlaying, startTime, startOffset } = appState.audio;
+        const { context, buffer, isPlaying, startTime, startOffset, source } = appState.audio;
         if (!buffer) return;
-        
-        let currentTime = startOffset;
-        if (isPlaying && context.state === 'running') { // Solo se sta effettivamente riproducendo
-            currentTime = startOffset + (context.currentTime - startTime);
-        }
-        
-        // Clampa il tempo corrente alla durata totale
-        currentTime = Math.min(currentTime, buffer.duration);
 
-        // Aggiorna la barra, che ora ha max in secondi * 100
+        let currentTime = startOffset;
+        if (isPlaying && context.state === 'running' && source) {
+             const elapsedTime = (context.currentTime - startTime) * source.playbackRate.value;
+             currentTime = startOffset + elapsedTime;
+        }
+
+        currentTime = Math.min(currentTime, buffer.duration);
+        
+        if (currentTime < 0) currentTime = 0;
+
         audioSeekBar.value = currentTime * 100;
         audioTimeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(buffer.duration)}`;
-
-        // Se l'audio è finito e non è già in stop, chiamiamo stopAudio
-        if (isPlaying && currentTime >= buffer.duration - 0.01) { // Tolleranza per floating point
-            stopAudio(true);
-        }
     }
-    
+
     function formatTime(seconds) {
+        seconds = Math.max(0, seconds);
         const min = Math.floor(seconds / 60);
         const sec = Math.floor(seconds % 60);
         return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
@@ -410,25 +422,22 @@ document.addEventListener('DOMContentLoaded', () => {
         wfCtx.lineTo(width, height / 2);
         wfCtx.stroke();
     }
-    
+
     function drawSpectrum(data) {
         const { width, height } = spectrumCanvas;
         spCtx.clearRect(0, 0, width, height);
-        const barWidth = (width / data.length) * 2.5; // Regola la larghezza delle barre
+        const barWidth = (width / data.length) * 2.5;
         let x = 0;
         for (let i = 0; i < data.length; i++) {
-            const barHeight = data[i] / 255 * height; // Normalizza l'altezza
-            spCtx.fillStyle = `hsl(${i / data.length * 360}, 100%, 50%)`; // Colore basato sulla frequenza
+            const barHeight = data[i] / 255 * height;
+            spCtx.fillStyle = `hsl(${i / data.length * 360}, 100%, 50%)`;
             spCtx.fillRect(x, height - barHeight, barWidth, barHeight);
-            x += barWidth + 1; // Spazio tra le barre
+            x += barWidth + 1;
         }
     }
-    
-    // Setup iniziale dei canvas
+
+    // Setup iniziale
     waveformCanvas.width = 800; waveformCanvas.height = 150;
     spectrumCanvas.width = 800; spectrumCanvas.height = 150;
-    // Inizializza i bottoni come disabilitati finché non viene caricato un audio
-    playPauseBtn.disabled = true;
-    stopBtn.disabled = true;
-    audioSeekBar.disabled = true;
+    resetAudioState();
 });

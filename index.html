@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Visual Sound Mixer</title>
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/pyramid.png" />
 </head>
 <body>
     <header>
@@ -55,6 +56,15 @@
                     <label for="volume-slider">Volume</label>
                     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" />
                 </div>
+                
+                <div class="control-group">
+                    <div class="label-with-reset">
+                        <label for="speed-slider">Velocità: <span id="speed-value">1.00</span>x</label>
+                        <button id="reset-speed-btn" class="small-btn" disabled>Reset</button>
+                    </div>
+                    <input type="range" id="speed-slider" min="0.5" max="2" step="0.05" value="1" disabled />
+                </div>
+
                 <div class="control-group">
                     <label for="audio-seek-bar">Avanzamento</label>
                     <input type="range" id="audio-seek-bar" value="0" step="0.1" disabled />
@@ -65,5 +75,15 @@
     </main>
 
     <script src="js/app.js"></script>
+
+    <footer>
+    <p>Progetto realizzato da Alessandro Di Girolamo</p>
+    <p>
+        <a href="https://www.flaticon.com/free-icons/pyramid" title="pyramid icons">
+        Pyramid icons created by Freepik - Flaticon
+        </a>
+    </p>
+    </footer>
+
 </body>
 </html>
