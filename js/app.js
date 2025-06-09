@@ -106,25 +106,71 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyFilter(type) {
         const imgData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
         const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i], g = data[i + 1], b = data[i + 2];
-            switch (type) {
-                case 'grayscale':
-                    const avg = 0.299 * r + 0.587 * g + 0.114 * b;
-                    data[i] = data[i + 1] = data[i + 2] = avg;
-                    break;
-                case 'invert':
-                    data[i] = 255 - r;
-                    data[i + 1] = 255 - g;
-                    data[i + 2] = 255 - b;
-                    break;
-                case 'sepia':
-                    data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
-                    data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
-                    data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
-                    break;
+        const width = imageCanvas.width;
+        const height = imageCanvas.height;
+
+        if (type === 'median') {
+            // Il filtro mediano non può modificare l'immagine "sul posto",
+            // perché il calcolo di un pixel necessita dei valori originali dei suoi vicini.
+            // Creiamo quindi una copia dei dati originali da cui leggere.
+            const originalData = new Uint8ClampedArray(data);
+
+            // Iteriamo su ogni pixel, saltando i bordi per semplicità
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    
+                    const i = (y * width + x) * 4; // Indice del pixel corrente
+                    
+                    const reds = [];
+                    const greens = [];
+                    const blues = [];
+
+                    // Raccogliamo i valori dei pixel nella finestra 3x3
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const neighborIndex = ((y + ky) * width + (x + kx)) * 4;
+                            reds.push(originalData[neighborIndex]);
+                            greens.push(originalData[neighborIndex + 1]);
+                            blues.push(originalData[neighborIndex + 2]);
+                        }
+                    }
+                    
+                    // Ordiniamo i valori per ogni canale di colore
+                    reds.sort((a, b) => a - b);
+                    greens.sort((a, b) => a - b);
+                    blues.sort((a, b) => a - b);
+                    
+                    // Il valore mediano è quello centrale (indice 4 in un array di 9 elementi)
+                    data[i] = reds[4];
+                    data[i+1] = greens[4];
+                    data[i+2] = blues[4];
+                    // L'alpha (trasparenza) rimane invariato
+                }
+            }
+
+        } else {
+            // Gli altri filtri possono operare pixel per pixel
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                switch (type) {
+                    case 'grayscale':
+                        const avg = 0.299 * r + 0.587 * g + 0.114 * b;
+                        data[i] = data[i + 1] = data[i + 2] = avg;
+                        break;
+                    case 'invert':
+                        data[i] = 255 - r;
+                        data[i + 1] = 255 - g;
+                        data[i + 2] = 255 - b;
+                        break;
+                    case 'sepia':
+                        data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+                        data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+                        data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+                        break;
+                }
             }
         }
+
         imageCtx.putImageData(imgData, 0, 0);
     }
 
@@ -203,11 +249,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     speedSlider.addEventListener('input', e => {
         const newRate = parseFloat(e.target.value);
-        appState.audio.playbackRate = newRate;
-        speedValue.textContent = newRate.toFixed(2);
+        const oldRate = appState.audio.playbackRate; // Leggi la vecchia velocità
 
-        if (appState.audio.source) {
+        speedValue.textContent = newRate.toFixed(2);
+        
+        // Se la riproduzione è in corso, dobbiamo ricalcolare l'offset
+        if (appState.audio.isPlaying && appState.audio.source) {
+            const { context, startTime, startOffset } = appState.audio;
+            
+            // 1. Calcola il tempo trascorso con la VECCHIA velocità
+            const elapsedTime = (context.currentTime - startTime) * oldRate;
+            
+            // 2. Aggiorna l'offset totale per "salvare" il progresso
+            appState.audio.startOffset = startOffset + elapsedTime;
+            
+            // 3. Resetta il tempo di inizio al momento attuale
+            appState.audio.startTime = context.currentTime;
+
+            // 4. Applica la nuova velocità allo stato e alla sorgente audio
+            appState.audio.playbackRate = newRate;
             appState.audio.source.playbackRate.value = newRate;
+            
+        } else {
+            // Se l'audio è in pausa, aggiorna semplicemente il valore per la prossima riproduzione
+            appState.audio.playbackRate = newRate;
         }
     });
 
@@ -270,10 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pauseAudio() {
-        const { context, source, startTime, startOffset } = appState.audio;
+        const { context, source, startTime, startOffset, playbackRate } = appState.audio; // Usa playbackRate dallo stato
         if (!appState.audio.isPlaying || !source) return;
 
-        const elapsedTime = (context.currentTime - startTime) * source.playbackRate.value;
+        // Calcola il tempo trascorso dall'ultimo "play" o cambio di velocità
+        const elapsedTime = (context.currentTime - startTime) * playbackRate;
         appState.audio.startOffset = startOffset + elapsedTime;
 
         source.onended = null;
