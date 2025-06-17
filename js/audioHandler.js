@@ -7,7 +7,6 @@ import * as ui from './ui.js';
 // stopAudio, setupAudioNodes, resetAudioState
 
 function formatTime(seconds) {
-    // ... (il tuo codice formatTime)
     seconds = Math.max(0, seconds);
     const min = Math.floor(seconds / 60);
     const sec = Math.floor(seconds % 60);
@@ -15,7 +14,7 @@ function formatTime(seconds) {
 }
 
 function drawWaveform(data) {
-    // ... (il tuo codice drawWaveform usando ui.waveformCanvas e ui.wfCtx)
+
     const { width, height } = ui.waveformCanvas;
     ui.wfCtx.clearRect(0, 0, width, height);
     ui.wfCtx.lineWidth = 2;
@@ -34,7 +33,7 @@ function drawWaveform(data) {
 }
 
 function drawSpectrum(data) {
-    // ... (il tuo codice drawSpectrum usando ui.spectrumCanvas e ui.spCtx)
+
     const { width, height } = ui.spectrumCanvas;
     ui.spCtx.clearRect(0, 0, width, height);
     const barWidth = (width / data.length) * 2.5;
@@ -48,7 +47,7 @@ function drawSpectrum(data) {
 }
 
 function updateSeekBarAndTime() {
-    // ... (il tuo codice updateSeekBarAndTime)
+
     const { context, buffer, isPlaying, startTime, startOffset, playbackRate } = appState.audio;
     if (!buffer) return;
 
@@ -66,7 +65,7 @@ function updateSeekBarAndTime() {
 }
 
 function stopVisualization() {
-    // ... (il tuo codice stopVisualization)
+
     if (appState.audio.animationFrameId) {
         cancelAnimationFrame(appState.audio.animationFrameId);
         appState.audio.animationFrameId = null;
@@ -76,7 +75,7 @@ function stopVisualization() {
 }
 
 function startVisualization() {
-    // ... (il tuo codice startVisualization)
+
     if (appState.audio.animationFrameId) return;
     const analyser = appState.audio.analyser;
     if (!analyser) return;
@@ -100,7 +99,7 @@ function startVisualization() {
 }
 
 function pauseAudio() {
-    // ... (la tua funzione pauseAudio corretta)
+
     const { context, source, startTime, startOffset, playbackRate } = appState.audio;
     if (!appState.audio.isPlaying || !source) return;
     const elapsedTime = (context.currentTime - startTime) * playbackRate;
@@ -117,7 +116,7 @@ function pauseAudio() {
 }
 
 function stopAudio(finishedNaturally = false) {
-    // ... (il tuo codice stopAudio)
+
     const { source } = appState.audio;
     if (source) {
         source.onended = null;
@@ -132,7 +131,7 @@ function stopAudio(finishedNaturally = false) {
 }
 
 function playAudio() {
-    // ... (il tuo codice playAudio)
+
     const { context, buffer, gainNode, startOffset, playbackRate } = appState.audio;
     if (!context || !buffer) return;
     if (context.state === 'suspended') { context.resume(); }
@@ -152,7 +151,7 @@ function playAudio() {
 }
 
 function setupAudioNodes() {
-    // ... (il tuo codice setupAudioNodes)
+
     const { context } = appState.audio;
     if (!context) return;
     appState.audio.gainNode = context.createGain();
@@ -242,7 +241,7 @@ export function initAudioHandler() {
     });
 
     ui.speedSlider.addEventListener('input', e => {
-        // ... (la tua logica corretta per lo speed slider)
+
         const newRate = parseFloat(e.target.value);
         const oldRate = appState.audio.playbackRate;
         ui.speedValue.textContent = newRate.toFixed(2);
@@ -259,14 +258,14 @@ export function initAudioHandler() {
     });
     
     ui.resetSpeedBtn.addEventListener('click', () => {
-        // ... (il tuo codice resetSpeedBtn)
+
         const defaultRate = 1.0;
         ui.speedSlider.value = defaultRate;
         ui.speedSlider.dispatchEvent(new Event('input')); // Simula l'evento per applicare la logica
     });
 
     ui.audioSeekBar.addEventListener('input', e => {
-        // ... (il tuo codice audioSeekBar)
+
         if (!appState.audio.buffer) return;
         const newTime = parseFloat(e.target.value) / 100;
         appState.audio.startOffset = newTime;
