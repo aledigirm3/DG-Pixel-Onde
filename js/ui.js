@@ -1,8 +1,9 @@
 // --- Riferimenti DOM (Immagine) ---
 export const imageInput = document.getElementById('image-input');
 export const imageCanvas = document.getElementById('image-canvas');
-export const imageCtx = imageCanvas.getContext('2d');
+export const imageCtx = imageCanvas.getContext('2d', { willReadFrequently: true });
 export const filterButtons = document.querySelectorAll('#image-controls button[data-filter]');
+export const fftButton = document.getElementById('fft-btn')
 export const rotateSlider = document.getElementById('rotate-slider');
 export const rotateValue = document.getElementById('rotate-value');
 export const resetImageBtn = document.getElementById('reset-image-btn');
