@@ -74,6 +74,33 @@ function drawSpectrogram(data) {
     }
 }
 
+function drawMelSpectrogram(data) {
+    const { width, height } = ui.spectrogramCanvas;
+    const ctx = ui.spectrogramCtx;
+
+    const numBands = 40; // numero bande Mel (approssimato)
+    const bandSize = Math.floor(data.length / numBands);
+
+    // Sposta immagine di 1px a sinistra
+    const imageData = ctx.getImageData(1, 0, width - 1, height);
+    ctx.putImageData(imageData, 0, 0);
+
+    for (let i = 0; i < numBands; i++) {
+        let sum = 0;
+        for (let j = 0; j < bandSize; j++) {
+            sum += data[i * bandSize + j];
+        }
+        const average = sum / bandSize;
+        const hue = 240 - (average / 255) * 240;
+
+        ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+        const y = height - (i / numBands) * height;
+        const barHeight = height / numBands;
+        ctx.fillRect(width - 1, y, 1, barHeight + 1);
+    }
+}
+
+
 
 
 function updateSeekBarAndTime() {
@@ -124,7 +151,11 @@ function startVisualization() {
         analyser.getByteFrequencyData(frequencyData);
         drawSpectrum(frequencyData);
         
-        drawSpectrogram(frequencyData);
+        if (appState.audio.useMel) {
+            drawMelSpectrogram(frequencyData);
+        } else {
+            drawSpectrogram(frequencyData);
+        }
 
         appState.audio.animationFrameId = requestAnimationFrame(draw);
     }
@@ -137,6 +168,10 @@ function pauseAudio(){const{context:e,source:t,startTime:a,startOffset:o,playbac
 // Funzione di inizializzazione per la sezione audio
 export function initAudioHandler() {
     ui.audioInput.addEventListener('change',async e=>{const t=e.target.files[0];if(t){appState.audio.context&&"closed"!==appState.audio.context.state&&await appState.audio.context.close(),resetAudioState(),appState.audio.startOffset=0,appState.audio.context=new(window.AudioContext||window.webkitAudioContext);try{const e=await t.arrayBuffer();appState.audio.buffer=await appState.audio.context.decodeAudioData(e),setupAudioNodes(),appState.audio.isLoaded=!0,ui.playPauseBtn.disabled=!1,ui.stopBtn.disabled=!1,ui.audioSeekBar.disabled=!1,ui.speedSlider.disabled=!1,ui.resetSpeedBtn.disabled=!1,ui.playPauseBtn.textContent="Play",ui.audioTimeDisplay.textContent=`00:00 / ${formatTime(appState.audio.buffer.duration)}`,ui.audioSeekBar.max=100*appState.audio.buffer.duration,ui.audioSeekBar.value=0}catch(e){console.error("Error decoding audio data:",e),alert("Impossibile caricare il file audio."),resetAudioState()}}}),ui.playPauseBtn.addEventListener("click",()=>{appState.audio.isLoaded&&(appState.audio.isPlaying?pauseAudio():playAudio())}),ui.stopBtn.addEventListener("click",()=>{appState.audio.isLoaded&&stopAudio(!1)}),ui.volumeSlider.addEventListener("input",e=>{appState.audio.gainNode&&(appState.audio.gainNode.gain.value=parseFloat(e.target.value))}),ui.speedSlider.addEventListener("input",e=>{const t=parseFloat(e.target.value),a=appState.audio.playbackRate;if(ui.speedValue.textContent=t.toFixed(2),appState.audio.isPlaying&&appState.audio.source){const{context:o,startTime:i,startOffset:n}=appState.audio,s=(o.currentTime-i)*a;appState.audio.startOffset=n+s,appState.audio.startTime=o.currentTime,appState.audio.playbackRate=t,appState.audio.source.playbackRate.value=t}else appState.audio.playbackRate=t}),ui.resetSpeedBtn.addEventListener("click",()=>{const e=1;ui.speedSlider.value=e,ui.speedSlider.dispatchEvent(new Event("input"))}),ui.audioSeekBar.addEventListener("input",e=>{if(appState.audio.buffer){const t=parseFloat(e.target.value)/100;appState.audio.startOffset=t,appState.audio.isPlaying&&(appState.audio.source&&(appState.audio.source.stop(),appState.audio.source.disconnect(),appState.audio.source=null),playAudio()),ui.audioTimeDisplay.textContent=`${formatTime(t)} / ${formatTime(appState.audio.buffer.duration)}`}});
+    ui.toggleMelBtn.addEventListener("click", () => {
+        appState.audio.useMel = !appState.audio.useMel;
+        ui.toggleMelBtn.textContent = `Mel: ${appState.audio.useMel ? 'ON' : 'OFF'}`;
+    });
 
 
     ui.waveformCanvas.width = 800; ui.waveformCanvas.height = 150;

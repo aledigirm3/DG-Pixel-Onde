@@ -17,5 +17,6 @@ export const appState = {
         startTime: 0,
         animationFrameId: null,
         playbackRate: 1.0,
+        useMel: false,
     },
 };

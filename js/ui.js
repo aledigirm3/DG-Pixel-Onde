@@ -24,3 +24,5 @@ export const spectrogramCtx = spectrogramCanvas.getContext('2d');
 export const speedSlider = document.getElementById('speed-slider');
 export const speedValue = document.getElementById('speed-value');
 export const resetSpeedBtn = document.getElementById('reset-speed-btn');
+
+export const toggleMelBtn = document.getElementById('toggle-mel-btn');
