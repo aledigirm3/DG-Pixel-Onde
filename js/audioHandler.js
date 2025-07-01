@@ -74,24 +74,63 @@ function drawSpectrogram(data) {
     }
 }
 
+function getMelBandIndices(fftSize, sampleRate, numBands) {
+    const melMin = hzToMel(0);
+    const melMax = hzToMel(sampleRate / 2);
+    const melPoints = [];
+    for (let i = 0; i <= numBands + 2; i++) {
+        melPoints.push(melMin + (melMax - melMin) * (i / (numBands + 2)));
+    }
+    const hzPoints = melPoints.map(melToHz);
+    const binIndices = hzPoints.map(hz => Math.floor((hz / (sampleRate / 2)) * fftSize));
+
+    const bands = [];
+    for (let i = 1; i <= numBands; i++) {
+        const start = binIndices[i - 1];
+        const peak = binIndices[i];
+        const end = binIndices[i + 1];
+        const indices = [];
+        for (let j = start; j < end; j++) {
+            if (j >= 0 && j < fftSize) {
+                indices.push(j);
+            }
+        }
+        bands.push(indices);
+    }
+    return bands;
+}
+
+function hzToMel(hz) {
+    return 2595 * Math.log10(1 + hz / 700);
+}
+
+function melToHz(mel) {
+    return 700 * (10 ** (mel / 2595) - 1);
+}
+
 function drawMelSpectrogram(data) {
     const { width, height } = ui.spectrogramCanvas;
     const ctx = ui.spectrogramCtx;
 
-    const numBands = 40; // numero bande Mel (approssimato)
-    const bandSize = Math.floor(data.length / numBands);
+    const numBands = 40; // bande Mel
+    const fftSize = data.length;
+    const melIndices = getMelBandIndices(fftSize, appState.audio.context.sampleRate, numBands);
 
-    // Sposta immagine di 1px a sinistra
+    // Sposta immagine 1px a sinistra
     const imageData = ctx.getImageData(1, 0, width - 1, height);
     ctx.putImageData(imageData, 0, 0);
 
     for (let i = 0; i < numBands; i++) {
+        const indices = melIndices[i];
         let sum = 0;
-        for (let j = 0; j < bandSize; j++) {
-            sum += data[i * bandSize + j];
+        for (const idx of indices) {
+            sum += data[idx];
         }
-        const average = sum / bandSize;
-        const hue = 240 - (average / 255) * 240;
+        const average = sum / indices.length;
+
+        // Log transform per renderlo più naturale
+        const logValue = Math.log10(1 + average) / Math.log10(256); // Normalizzato [0,1]
+        const hue = 240 - logValue * 240;
 
         ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
         const y = height - (i / numBands) * height;
@@ -99,9 +138,6 @@ function drawMelSpectrogram(data) {
         ctx.fillRect(width - 1, y, 1, barHeight + 1);
     }
 }
-
-
-
 
 function updateSeekBarAndTime() {
     const { context, buffer, isPlaying, startTime, startOffset, playbackRate } = appState.audio;
@@ -123,10 +159,10 @@ function stopVisualization() {
     if (appState.audio.animationFrameId) {
         cancelAnimationFrame(appState.audio.animationFrameId);
         appState.audio.animationFrameId = null;
-        // Non puliamo lo spettrogramma quando si ferma, così rimane visibile la "storia"
-        ui.wfCtx.clearRect(0, 0, ui.waveformCanvas.width, ui.waveformCanvas.height);
-        ui.spCtx.clearRect(0, 0, ui.spectrumCanvas.width, ui.spectrumCanvas.height);
     }
+    ui.wfCtx.clearRect(0, 0, ui.waveformCanvas.width, ui.waveformCanvas.height);
+    ui.spCtx.clearRect(0, 0, ui.spectrumCanvas.width, ui.spectrumCanvas.height);
+    ui.spectrogramCtx.clearRect(0, 0, ui.spectrogramCanvas.width, ui.spectrogramCanvas.height);
 }
 
 
