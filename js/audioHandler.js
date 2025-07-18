@@ -198,12 +198,296 @@ function startVisualization() {
     appState.audio.animationFrameId = requestAnimationFrame(draw);
 }
 
-function pauseAudio(){const{context:e,source:t,startTime:a,startOffset:o,playbackRate:i}=appState.audio;if(!appState.audio.isPlaying||!t)return;const n=(e.currentTime-a)*i;appState.audio.startOffset=o+n,t.onended=null,t.stop(0),appState.audio.source=null,appState.audio.isPlaying=!1,ui.playPauseBtn.textContent="Play",appState.audio.animationFrameId&&(cancelAnimationFrame(appState.audio.animationFrameId),appState.audio.animationFrameId=null)}function stopAudio(e=!1){const{source:t}=appState.audio;t&&(t.onended=null,t.stop(0),appState.audio.source=null),appState.audio.isPlaying=!1,ui.playPauseBtn.textContent="Play",appState.audio.startOffset=0,stopVisualization(),updateSeekBarAndTime()}function playAudio(){const{context:e,buffer:t,gainNode:a,startOffset:o,playbackRate:i}=appState.audio;e&&t&&("suspended"===e.state&&e.resume(),appState.audio.source=e.createBufferSource(),appState.audio.source.buffer=t,appState.audio.source.playbackRate.value=i,appState.audio.source.connect(a),appState.audio.source.onended=()=>{appState.audio.isPlaying&&stopAudio(!0)},appState.audio.startTime=e.currentTime,appState.audio.source.start(0,o%t.duration),appState.audio.isPlaying=!0,ui.playPauseBtn.textContent="Pause",startVisualization())}function setupAudioNodes(){const{context:e}=appState.audio;e&&(appState.audio.gainNode=e.createGain(),appState.audio.analyser=e.createAnalyser(),appState.audio.analyser.fftSize=2048,appState.audio.gainNode.connect(appState.audio.analyser),appState.audio.analyser.connect(e.destination),appState.audio.gainNode.gain.value=ui.volumeSlider.value)}function resetAudioState(){appState.audio.source&&(appState.audio.source.stop(),appState.audio.source.disconnect(),appState.audio.source=null),appState.audio.context&&"closed"!==appState.audio.context.state&&(appState.audio.context.close().catch(e=>console.error(e)),appState.audio.context=null),Object.assign(appState.audio,{buffer:null,gainNode:null,analyser:null,isPlaying:!1,isLoaded:!1,startOffset:0,startTime:0,playbackRate:1}),stopVisualization(),ui.playPauseBtn.disabled=!0,ui.stopBtn.disabled=!0,ui.audioSeekBar.disabled=!0,ui.speedSlider.disabled=!0,ui.resetSpeedBtn.disabled=!0,ui.playPauseBtn.textContent="Play",ui.audioTimeDisplay.textContent="00:00 / 00:00",ui.audioSeekBar.value=0,ui.speedSlider.value=1,ui.speedValue.textContent="1.00"}
+function pauseAudio() {
+    const {
+        context,
+        source,
+        startTime,
+        startOffset,
+        playbackRate
+    } = appState.audio;
+
+    // Se non sta suonando o non c'è source, esci
+    if (!appState.audio.isPlaying || !source) return;
+
+    // Calcola quanto tempo è passato da quando ha iniziato a suonare
+    const elapsed = (context.currentTime - startTime) * playbackRate;
+
+    // Aggiorna startOffset per poter riprendere da qui
+    appState.audio.startOffset = startOffset + elapsed;
+
+    // Ferma la sorgente audio
+    source.onended = null;
+    source.stop(0);
+    appState.audio.source = null;
+    appState.audio.isPlaying = false;
+
+    // Aggiorna UI
+    ui.playPauseBtn.textContent = "Play";
+
+    // Ferma l'animazione se attiva
+    if (appState.audio.animationFrameId) {
+        cancelAnimationFrame(appState.audio.animationFrameId);
+        appState.audio.animationFrameId = null;
+    }
+}
+
+function stopAudio(resetOffset = false) {
+    const { source } = appState.audio;
+
+    if (source) {
+        source.onended = null;
+        source.stop(0);
+        appState.audio.source = null;
+    }
+
+    appState.audio.isPlaying = false;
+    ui.playPauseBtn.textContent = "Play";
+
+    if (resetOffset) {
+        appState.audio.startOffset = 0;
+    }
+
+    stopVisualization();
+    updateSeekBarAndTime();
+}
+
+function playAudio() {
+    const {
+        context,
+        buffer,
+        gainNode,
+        startOffset,
+        playbackRate
+    } = appState.audio;
+
+    if (!context || !buffer) return;
+
+    // Se l'audio context è sospeso (autoplay policy), prova a riprendere
+    if (context.state === 'suspended') {
+        context.resume();
+    }
+
+    // Crea una nuova sorgente audio
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = playbackRate;
+
+    // Collega la sorgente al nodo di gain (volume)
+    source.connect(gainNode);
+
+    // Quando l'audio finisce, chiama stopAudio
+    source.onended = () => {
+        if (appState.audio.isPlaying) {
+            stopAudio(true);
+        }
+    };
+
+    appState.audio.source = source;
+    appState.audio.startTime = context.currentTime;
+
+    // Avvia la riproduzione da startOffset (modulo durata per sicurezza)
+    source.start(0, startOffset % buffer.duration);
+
+    appState.audio.isPlaying = true;
+
+    // Aggiorna UI
+    ui.playPauseBtn.textContent = "Pause";
+
+    // Avvia la visualizzazione
+    startVisualization();
+}
+
+function setupAudioNodes() {
+    const { context } = appState.audio;
+    if (!context) return;
+
+    appState.audio.gainNode = context.createGain();
+    appState.audio.analyser = context.createAnalyser();
+
+    appState.audio.analyser.fftSize = 2048;
+
+    // Collegamenti: gainNode -> analyser -> destinazione audio
+    appState.audio.gainNode.connect(appState.audio.analyser);
+    appState.audio.analyser.connect(context.destination);
+
+    // Imposta volume iniziale dal controllo UI
+    appState.audio.gainNode.gain.value = ui.volumeSlider.value;
+}
+
+function resetAudioState() {
+    if (appState.audio.source) {
+        appState.audio.source.stop();
+        appState.audio.source.disconnect();
+        appState.audio.source = null;
+    }
+
+    if (appState.audio.context && appState.audio.context.state !== 'closed') {
+        appState.audio.context.close().catch(e => console.error(e));
+        appState.audio.context = null;
+    }
+
+    Object.assign(appState.audio, {
+        buffer: null,
+        gainNode: null,
+        analyser: null,
+        isPlaying: false,
+        isLoaded: false,
+        startOffset: 0,
+        startTime: 0,
+        playbackRate: 1,
+    });
+
+    stopVisualization();
+
+    // Disabilita UI fino a nuovo caricamento audio
+    ui.playPauseBtn.disabled = true;
+    ui.stopBtn.disabled = true;
+    ui.audioSeekBar.disabled = true;
+    ui.speedSlider.disabled = true;
+    ui.resetSpeedBtn.disabled = true;
+
+    ui.playPauseBtn.textContent = "Play";
+    ui.audioTimeDisplay.textContent = "00:00 / 00:00";
+    ui.audioSeekBar.value = 0;
+    ui.speedSlider.value = 1;
+    ui.speedValue.textContent = "1.00";
+}
+
 
 
 // Funzione di inizializzazione per la sezione audio
 export function initAudioHandler() {
-    ui.audioInput.addEventListener('change',async e=>{const t=e.target.files[0];if(t){appState.audio.context&&"closed"!==appState.audio.context.state&&await appState.audio.context.close(),resetAudioState(),appState.audio.startOffset=0,appState.audio.context=new(window.AudioContext||window.webkitAudioContext);try{const e=await t.arrayBuffer();appState.audio.buffer=await appState.audio.context.decodeAudioData(e),setupAudioNodes(),appState.audio.isLoaded=!0,ui.playPauseBtn.disabled=!1,ui.stopBtn.disabled=!1,ui.audioSeekBar.disabled=!1,ui.speedSlider.disabled=!1,ui.resetSpeedBtn.disabled=!1,ui.playPauseBtn.textContent="Play",ui.audioTimeDisplay.textContent=`00:00 / ${formatTime(appState.audio.buffer.duration)}`,ui.audioSeekBar.max=100*appState.audio.buffer.duration,ui.audioSeekBar.value=0}catch(e){console.error("Error decoding audio data:",e),alert("Impossibile caricare il file audio."),resetAudioState()}}}),ui.playPauseBtn.addEventListener("click",()=>{appState.audio.isLoaded&&(appState.audio.isPlaying?pauseAudio():playAudio())}),ui.stopBtn.addEventListener("click",()=>{appState.audio.isLoaded&&stopAudio(!1)}),ui.volumeSlider.addEventListener("input",e=>{appState.audio.gainNode&&(appState.audio.gainNode.gain.value=parseFloat(e.target.value))}),ui.speedSlider.addEventListener("input",e=>{const t=parseFloat(e.target.value),a=appState.audio.playbackRate;if(ui.speedValue.textContent=t.toFixed(2),appState.audio.isPlaying&&appState.audio.source){const{context:o,startTime:i,startOffset:n}=appState.audio,s=(o.currentTime-i)*a;appState.audio.startOffset=n+s,appState.audio.startTime=o.currentTime,appState.audio.playbackRate=t,appState.audio.source.playbackRate.value=t}else appState.audio.playbackRate=t}),ui.resetSpeedBtn.addEventListener("click",()=>{const e=1;ui.speedSlider.value=e,ui.speedSlider.dispatchEvent(new Event("input"))}),ui.audioSeekBar.addEventListener("input",e=>{if(appState.audio.buffer){const t=parseFloat(e.target.value)/100;appState.audio.startOffset=t,appState.audio.isPlaying&&(appState.audio.source&&(appState.audio.source.stop(),appState.audio.source.disconnect(),appState.audio.source=null),playAudio()),ui.audioTimeDisplay.textContent=`${formatTime(t)} / ${formatTime(appState.audio.buffer.duration)}`}});
+    // Quando l'utente seleziona un file audio dall'input file
+    ui.audioInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Se c'è un AudioContext aperto, chiudilo
+        if (appState.audio.context && appState.audio.context.state !== "closed") {
+            await appState.audio.context.close();
+        }
+
+        // Resetta lo stato audio
+        resetAudioState();
+
+        // Reset offset di riproduzione
+        appState.audio.startOffset = 0;
+
+        // Crea un nuovo AudioContext
+        appState.audio.context = new (window.AudioContext || window.webkitAudioContext)();
+
+        try {
+            // Leggi il file audio come ArrayBuffer
+            const arrayBuffer = await file.arrayBuffer();
+
+            // Decodifica i dati audio
+            appState.audio.buffer = await appState.audio.context.decodeAudioData(arrayBuffer);
+
+            // Imposta i nodi audio (gain, analyser, ecc.)
+            setupAudioNodes();
+
+            // Segnala che il file è caricato
+            appState.audio.isLoaded = true;
+
+            // Abilita i controlli di riproduzione
+            ui.playPauseBtn.disabled = false;
+            ui.stopBtn.disabled = false;
+            ui.audioSeekBar.disabled = false;
+            ui.speedSlider.disabled = false;
+            ui.resetSpeedBtn.disabled = false;
+
+            // Aggiorna la UI con stato iniziale
+            ui.playPauseBtn.textContent = "Play";
+            ui.audioTimeDisplay.textContent = `00:00 / ${formatTime(appState.audio.buffer.duration)}`;
+
+            // Imposta il massimo del seek bar in base alla durata dell'audio
+            ui.audioSeekBar.max = 100 * appState.audio.buffer.duration;
+            ui.audioSeekBar.value = 0;
+
+        } catch (error) {
+            console.error("Error decoding audio data:", error);
+            alert("Impossibile caricare il file audio.");
+            resetAudioState();
+        }
+    });
+
+    // Gestisce il click sul pulsante Play/Pause
+    ui.playPauseBtn.addEventListener("click", () => {
+        if (!appState.audio.isLoaded) return;
+
+        if (appState.audio.isPlaying) {
+            pauseAudio();
+        } else {
+            playAudio();
+        }
+    });
+
+    // Gestisce il click sul pulsante Stop
+    ui.stopBtn.addEventListener("click", () => {
+        if (!appState.audio.isLoaded) return;
+        stopAudio(false);
+    });
+
+    // Controlla il volume (gain) tramite lo slider
+    ui.volumeSlider.addEventListener("input", (event) => {
+        if (appState.audio.gainNode) {
+            appState.audio.gainNode.gain.value = parseFloat(event.target.value);
+        }
+    });
+
+    // Controlla la velocità di riproduzione tramite slider
+    ui.speedSlider.addEventListener("input", (event) => {
+        const newRate = parseFloat(event.target.value);
+        const audio = appState.audio;
+
+        ui.speedValue.textContent = newRate.toFixed(2);
+
+        if (audio.isPlaying && audio.source) {
+            // Calcola l'offset corrente per continuare da qui con nuova velocità
+            const { context, startTime, startOffset, playbackRate } = audio;
+            const elapsed = (context.currentTime - startTime) * playbackRate;
+
+            audio.startOffset = startOffset + elapsed;
+            audio.startTime = context.currentTime;
+            audio.playbackRate = newRate;
+            audio.source.playbackRate.value = newRate;
+        } else {
+            audio.playbackRate = newRate;
+        }
+    });
+
+    // Pulsante per resettare la velocità a 1
+    ui.resetSpeedBtn.addEventListener("click", () => {
+        const defaultRate = 1;
+        ui.speedSlider.value = defaultRate;
+        ui.speedSlider.dispatchEvent(new Event("input")); // trigger input per aggiornare tutto
+    });
+
+    // Gestisce il seek bar per saltare in punti specifici dell'audio
+    ui.audioSeekBar.addEventListener("input", (event) => {
+        const audio = appState.audio;
+        if (!audio.buffer) return;
+
+        // Calcola il nuovo offset in secondi
+        const newOffset = parseFloat(event.target.value) / 100;
+
+        audio.startOffset = newOffset;
+
+        // Se sta suonando, interrompi e riparti dal nuovo offset
+        if (audio.isPlaying) {
+            if (audio.source) {
+                audio.source.stop();
+                audio.source.disconnect();
+                audio.source = null;
+            }
+            playAudio();
+        }
+
+        // Aggiorna la visualizzazione del tempo
+        ui.audioTimeDisplay.textContent = `${formatTime(newOffset)} / ${formatTime(audio.buffer.duration)}`;
+    });
+
     ui.toggleMelBtn.addEventListener("click", () => {
         appState.audio.useMel = !appState.audio.useMel;
         ui.toggleMelBtn.textContent = `Mel: ${appState.audio.useMel ? 'ON' : 'OFF'}`;
