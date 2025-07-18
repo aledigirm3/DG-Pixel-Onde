@@ -24,7 +24,7 @@ function drawWaveform(data) {
     ui.wfCtx.lineTo(width, height / 2);
     ui.wfCtx.stroke();
 }
-function drawSpectrum(data) { // Questa è la versione a barre raggruppate
+function drawSpectrum(data) {
     const { width, height } = ui.spectrumCanvas;
     ui.spCtx.clearRect(0, 0, width, height);
     const groupSize = 4;
@@ -47,16 +47,16 @@ function drawSpectrogram(data) {
     const { width, height } = ui.spectrogramCanvas;
     const ctx = ui.spectrogramCtx;
 
-    // 1. Sposta l'immagine esistente di 1 pixel a sinistra
+    // Sposta l'immagine esistente di 1 pixel a sinistra
     const imageData = ctx.getImageData(1, 0, width - 1, height);
     ctx.putImageData(imageData, 0, 0);
 
-    // 2. Disegna la nuova linea di frequenze sul bordo destro
+    // Disegna la nuova linea di frequenze sul bordo destro
     for (let i = 0; i < data.length; i++) {
         // Il valore dell'ampiezza (0-255) determina il colore
         const value = data[i];
         
-        // Mappiamo il valore su una scala di colori (es. da blu a rosso)
+        // Mappa il valore su una scala di colori (es. da blu a rosso)
         // Blu (silenzio) -> Verde -> Giallo -> Rosso (suono forte)
         // Hue: 240 (blu) -> 0 (rosso)
         const hue = 240 - (value / 255) * 240;
@@ -358,12 +358,12 @@ function resetAudioState() {
 
 // Funzione di inizializzazione per la sezione audio
 export function initAudioHandler() {
-    // Quando l'utente seleziona un file audio dall'input file
+    // Input file audio
     ui.audioInput.addEventListener('change', async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Se c'è un AudioContext aperto, chiudilo
+        // Se c'è un AudioContext aperto lo chiude
         if (appState.audio.context && appState.audio.context.state !== "closed") {
             await appState.audio.context.close();
         }
@@ -378,7 +378,7 @@ export function initAudioHandler() {
         appState.audio.context = new (window.AudioContext || window.webkitAudioContext)();
 
         try {
-            // Leggi il file audio come ArrayBuffer
+            // Legge il file audio come ArrayBuffer
             const arrayBuffer = await file.arrayBuffer();
 
             // Decodifica i dati audio
