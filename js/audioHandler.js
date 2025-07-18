@@ -171,7 +171,7 @@ function startVisualization() {
     const analyser = appState.audio.analyser;
     if (!analyser) return;
     
-    const dataLength = analyser.frequencyBinCount;
+    const dataLength = analyser.frequencyBinCount; // fftSize / 2
     const waveformData = new Uint8Array(analyser.fftSize);
     const frequencyData = new Uint8Array(dataLength);
 
