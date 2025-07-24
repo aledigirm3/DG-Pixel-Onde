@@ -88,8 +88,6 @@ Il codice è organizzato in moduli per separare le responsabilità:
 
 ## ✨ Crediti
 
-- **Sviluppatore**: Alessandro Di Girolamo <a href="https://github.com/aledigirm3"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" 
-     width="20" height="20"
-     style="filter: invert(1);"/></a>
+- **Sviluppatore**: Alessandro Di Girolamo <a href="https://github.com/aledigirm3"><img src="https://github.com/aledigirm3.png" width="20" height="20" style="border-radius: 50%;" /></a>
 - **Icona**: [Pyramid icons created by Freepik - Flaticon](https://www.flaticon.com/free-icon/pyramid_6181172)
 - **Immagine di sfondo**: [Background image by Freepik](https://www.freepik.com/free-photo/3d-rendering-hexagonal-texture-background_66626551.htm)
